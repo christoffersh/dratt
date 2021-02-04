@@ -18,6 +18,14 @@ import {
   substitueVariablesInRequest,
 } from "./variable-substitution.ts";
 
+export function createTestRunner(
+  options?: { logLevel?: LogLevel },
+): TestRunner {
+  return new TestRunner({
+    logLevel: options?.logLevel ?? LogLevel.Normal,
+  });
+}
+
 export class TestRunner {
   settings: TestRunnerSettings;
 

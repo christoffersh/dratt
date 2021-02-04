@@ -83,9 +83,15 @@ function createUrl(
     ? createQueryParamString(queryParams)
     : undefined;
 
-  return `${baseUrl}${
+  const url = `${baseUrl}${
     !baseUrl.endsWith("/") && !path.startsWith("/") ? "/" : ""
   }${path}${queryParamsString ? "?" : ""}${queryParamsString ?? ""}`;
+
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    throw `url "${url}" is missing http:// or https:// prefix`;
+  }
+
+  return url;
 }
 
 function createQueryParamString(queryParams: QueryParams) {
