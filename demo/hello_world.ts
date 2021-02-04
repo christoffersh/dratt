@@ -13,8 +13,7 @@ await testRunner.runTestSuites$([
           description: "GET google",
           request: {
             method: "GET",
-            path: "/search?q=deno",
-            baseUrl: "http://www.google.com",
+            url: "${googleBaseUrl}/search?q=${searchString}",
           },
           expectations: [
             ExpectStatus.toBe(200),
@@ -22,7 +21,10 @@ await testRunner.runTestSuites$([
         },
       ],
     }],
-    variables: {},
+    variables: {
+      googleBaseUrl: "http://www.google.com",
+      searchString: "deno",
+    },
   },
 ]);
 

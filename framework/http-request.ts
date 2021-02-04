@@ -8,32 +8,24 @@ export type HttpRequest =
 
 export interface HttpGetRequest {
   method: "GET";
-  baseUrl: string;
-  path: string;
-  queryParams?: QueryParams;
+  url: string;
 }
 
 export interface HttpPostRequest {
   method: "POST";
-  baseUrl: string;
-  path: string;
+  url: string;
   body: Object;
-  queryParams?: QueryParams;
 }
 
 export interface HttpDeleteRequest {
   method: "DELETE";
-  baseUrl: string;
-  path: string;
-  queryParams?: QueryParams;
+  url: string;
 }
 
 export interface HttpPutRequest {
   method: "PUT";
-  baseUrl: string;
-  path: string;
+  url: string;
   body: Object;
-  queryParams?: QueryParams;
 }
 
 export type QueryParams = Record<string, string | number>;

@@ -39,50 +39,15 @@ export function substitueVariablesInRequest(
 
   // base url
   try {
-    request.baseUrl = substituteVariablesInString(
+    request.url = substituteVariablesInString(
       combinedVariables,
-      request.baseUrl,
+      request.url,
     );
   } catch (err: any) {
     printSubstitutionErrorContext(
-      `Substitution on baseUrl '${request.baseUrl}': ${err}`,
+      `Substitution on url '${request.url}': ${err}`,
     );
     return "error";
-  }
-
-  // path
-  try {
-    request.path = substituteVariablesInString(
-      combinedVariables,
-      request.path,
-    );
-  } catch (err: any) {
-    printSubstitutionErrorContext(
-      `Substitution on path '${request.path}': ${err}`,
-    );
-    return "error";
-  }
-
-  // query params
-  if (request.queryParams) {
-    for (const key of Object.keys(request.queryParams)) {
-      try {
-        const variable = request.queryParams[key];
-        if (isString(variable)) {
-          request.queryParams[key] = substituteVariablesInString(
-            combinedVariables,
-            variable,
-          );
-        }
-      } catch (err: any) {
-        printSubstitutionErrorContext(
-          `Substitution on query param '${key}=${
-            request.queryParams[key]
-          }': ${err}`,
-        );
-        return "error";
-      }
-    }
   }
 
   // body

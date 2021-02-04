@@ -14,7 +14,7 @@ export async function callApi$(
   logger.log(
     LogLevel.Normal,
     request.method,
-    createUrl(request.baseUrl, request.path, request.queryParams),
+    request.url,
   );
 
   try {
@@ -39,13 +39,18 @@ export async function callApi$(
 }
 
 function createApiCall$(request: HttpRequest) {
-  const url = createUrl(request.baseUrl, request.path, request.queryParams);
+  if (
+    !request.url.startsWith("http://") && !request.url.startsWith("https://")
+  ) {
+    throw `url "${request.url}" is missing http:// or https:// prefix`;
+  }
+
   if (request.method === "GET") {
     // GET
-    return fetch(url);
+    return fetch(request.url);
   } else if (request.method === "POST") {
     // POST
-    return fetch(url, {
+    return fetch(request.url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -54,7 +59,7 @@ function createApiCall$(request: HttpRequest) {
     });
   } else if (request.method === "PUT") {
     // PUT
-    return fetch(url, {
+    return fetch(request.url, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -63,7 +68,7 @@ function createApiCall$(request: HttpRequest) {
     });
   } else if (request.method === "DELETE") {
     // DELETE
-    return fetch(url, {
+    return fetch(request.url, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
@@ -72,32 +77,6 @@ function createApiCall$(request: HttpRequest) {
   } else {
     return "callCreationFailed";
   }
-}
-
-function createUrl(
-  baseUrl: string,
-  path: string,
-  queryParams: QueryParams | undefined,
-) {
-  const queryParamsString = queryParams
-    ? createQueryParamString(queryParams)
-    : undefined;
-
-  const url = `${baseUrl}${
-    !baseUrl.endsWith("/") && !path.startsWith("/") ? "/" : ""
-  }${path}${queryParamsString ? "?" : ""}${queryParamsString ?? ""}`;
-
-  if (!url.startsWith("http://") && !url.startsWith("https://")) {
-    throw `url "${url}" is missing http:// or https:// prefix`;
-  }
-
-  return url;
-}
-
-function createQueryParamString(queryParams: QueryParams) {
-  return Object.keys(queryParams)
-    .map((key) => `${key}=${queryParams[key]}`)
-    .join("&");
 }
 
 async function readReponse$(response: Response): Promise<HttpResponse> {
