@@ -3,13 +3,13 @@ import { checkExpectations } from "./check-expectations.ts";
 import { FAILED, Logger, LogLevel, SUCCESS } from "./logger.ts";
 import {
   combineVariables,
-  Test,
+  TestDefinition,
   TestFlow,
   TestResult,
   TestRunnerSettings,
-  TestStep,
+  TestStepDefinition,
   TestStepResult,
-  TestSuite,
+  TestSuiteDefinition,
   Variables,
   VariableStore,
 } from "./models.ts";
@@ -34,7 +34,7 @@ export class TestRunner {
   }
 
   async runTestSuites$(
-    testSuites: TestSuite[],
+    testSuites: TestSuiteDefinition[],
   ): Promise<"success" | "failed" | "error"> {
     let testHasFailed = false;
     const logger = new Logger(this.settings.logLevel);
@@ -53,7 +53,7 @@ export class TestRunner {
 }
 
 async function runTestSuite$(
-  suite: TestSuite,
+  suite: TestSuiteDefinition,
   logger: Logger,
 ): Promise<"success" | "failed" | "error"> {
   logger.log(LogLevel.Min, "Test suite", suite.name);
@@ -73,10 +73,10 @@ async function runTestSuite$(
         `^ ${testTitle}`,
         test.name,
         FAILED,
-        suite.continueAfterFailedTests ? "Continuing..." : "Aborting...",
+        suite.ignoreFailedTests ? "Continuing..." : "Aborting...",
       );
 
-      if (!suite.continueAfterFailedTests) {
+      if (!suite.ignoreFailedTests) {
         logger.log(LogLevel.Min, "^ Test suite", suite.name, FAILED);
         return "failed";
       } else {
@@ -99,7 +99,7 @@ async function runTestSuite$(
 }
 
 async function runTest$(
-  test: Test,
+  test: TestDefinition,
   testTitle: string,
   suiteVariables: VariableStore,
   logger: Logger,
@@ -197,7 +197,7 @@ async function runTest$(
 }
 
 async function runStepAndDetermineTestFlow$(
-  step: TestStep,
+  step: TestStepDefinition,
   stepTitle: string,
   variables: Variables,
   continueAfterFail: boolean,
@@ -222,7 +222,7 @@ async function runStepAndDetermineTestFlow$(
 }
 
 async function runStep$(
-  step: TestStep,
+  step: TestStepDefinition,
   variables: Variables,
   shouldSkipVariableSettersOnFail: boolean,
   logger: Logger,
@@ -300,7 +300,7 @@ async function runStep$(
 function determineTestFlow(
   stepTitle: string,
   testResult: TestStepResult,
-  step: TestStep,
+  step: TestStepDefinition,
   continueAfterFailedSteps: boolean,
   logger: Logger,
 ): TestFlow {

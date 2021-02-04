@@ -2,19 +2,19 @@ import { ResponseExpectation } from "./expect.ts";
 import { HttpRequest } from "./http-request.ts";
 import { LogLevel } from "./logger.ts";
 
-export interface TestSuite {
+export interface TestSuiteDefinition {
   name: string;
-  tests: Test[];
+  tests: TestDefinition[];
   variables: VariableStore;
-  continueAfterFailedTests?: boolean;
+  ignoreFailedTests?: boolean;
 }
 
-export interface Test {
+export interface TestDefinition {
   name: string;
-  description: string;
+  description?: string;
   dataSeeders?: DataSeeder[];
   continueAfterFailedSteps?: boolean;
-  steps: TestStep[];
+  steps: TestStepDefinition[];
 }
 
 export type TestResult = "testSuccess" | "testFailed" | "error";
@@ -24,22 +24,24 @@ export type TestFlow =
   | { action: "exit"; result: "testFailed" }
   | { action: "exit"; result: "error" };
 
-export interface TestStep {
+export interface TestStepDefinition {
   description: string;
   request: HttpRequest;
   expectations: ResponseExpectation[];
-  afterStep?: (
-    setVariable: (name: string, value: string | number) => void,
-    response: HttpResponse,
-  ) => void;
+  afterStep?: AfterStepHandler;
 }
+
+export type AfterStepHandler = (
+  setVariable: (name: string, value: string | number) => void,
+  response: HttpResponse,
+) => void;
 
 export type TestStepResult = "stepSuccess" | "stepFailed" | "error";
 
 export interface DataSeeder {
   name: string;
-  setup: TestStep[];
-  teardown: TestStep[];
+  setup: TestStepDefinition[];
+  teardown: TestStepDefinition[];
 }
 
 export type VariableStore = Record<string, string | number>;
