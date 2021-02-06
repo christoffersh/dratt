@@ -1,6 +1,7 @@
 import { Expectation } from "./expect.ts";
 import { HttpRequest } from "./http-request.ts";
 import { LogLevel } from "./logger.ts";
+import { TestStepReport } from "./report.ts";
 
 export interface TestSuiteDefinition {
   name: string;
@@ -19,9 +20,8 @@ export interface TestDefinition {
 
 export type TestResult = "testSuccess" | "testFailed" | "error";
 export type TestFlow =
-  | { action: "continue"; result: "testFailed" }
-  | { action: "continue"; result: "testSuccess" }
-  | { action: "exit"; result: "testFailed" }
+  | { action: "continue"; result: TestStepReport }
+  | { action: "exit"; result: TestStepReport }
   | { action: "exit"; result: "error" };
 
 export interface TestStepDefinition {
@@ -35,8 +35,6 @@ export type AfterStepHandler = (
   setVariable: (name: string, value: string | number) => void,
   response: HttpResponse,
 ) => void;
-
-export type TestStepResult = "stepSuccess" | "stepFailed" | "error";
 
 export interface DataSeeder {
   name: string;

@@ -8,11 +8,11 @@ import {
   TestResult,
   TestRunnerSettings,
   TestStepDefinition,
-  TestStepResult,
   TestSuiteDefinition,
   Variables,
   VariableStore,
 } from "./models.ts";
+import { TestStepReport } from "./report.ts";
 import {
   substitueVariablesInExpectations,
   substitueVariablesInRequest,
@@ -139,9 +139,9 @@ async function runTest$(
         logger,
       );
 
-      if (testFlow.action !== "continue") {
-        return testFlow.result;
-      } else if (testFlow.result === "testFailed") {
+      if (testFlow.action === "exit") {
+        return testFlow.result === "error" ? "error" : "testFailed";
+      } else if (!testFlow.result.testStepSuccessful) {
         testExecutionResult = "testFailed";
       }
     }
@@ -161,9 +161,9 @@ async function runTest$(
       logger,
     );
 
-    if (testFlow.action !== "continue") {
-      return testFlow.result;
-    } else if (testFlow.result === "testFailed") {
+    if (testFlow.action === "exit") {
+      return testFlow.result === "error" ? "error" : "testFailed";
+    } else if (!testFlow.result.testStepSuccessful) {
       testExecutionResult = "testFailed";
     }
   }
@@ -186,9 +186,9 @@ async function runTest$(
         logger,
       );
 
-      if (testFlow.action !== "continue") {
-        return testFlow.result;
-      } else if (testFlow.result === "testFailed") {
+      if (testFlow.action === "exit") {
+        return testFlow.result === "error" ? "error" : "testFailed";
+      } else if (!testFlow.result.testStepSuccessful) {
         testExecutionResult = "testFailed";
       }
     }
@@ -205,7 +205,7 @@ async function runStepAndDetermineTestFlow$(
 ) {
   logger.log(LogLevel.Min, stepTitle, step.description);
 
-  const stepResult = await runStep$(
+  const testStepReport = await runStep$(
     step,
     variables,
     continueAfterFail,
@@ -214,7 +214,7 @@ async function runStepAndDetermineTestFlow$(
 
   return determineTestFlow(
     stepTitle,
-    stepResult,
+    testStepReport,
     step,
     continueAfterFail,
     logger,
@@ -226,19 +226,19 @@ async function runStep$(
   variables: Variables,
   shouldSkipVariableSettersOnFail: boolean,
   logger: Logger,
-): Promise<"stepSuccess" | "stepFailed" | "error"> {
+): Promise<TestStepReport | "error"> {
   try {
-    const resultingRequest = substitueVariablesInRequest(
+    const request = substitueVariablesInRequest(
       variables,
       step.request,
       logger,
     );
 
-    if (resultingRequest === "error") {
+    if (request === "error") {
       return "error";
     }
 
-    const response = await callApi$(resultingRequest, logger);
+    const response = await callApi$(request, logger);
 
     if (
       response === "callCreationFailed" ||
@@ -265,7 +265,7 @@ async function runStep$(
     }
 
     const expectationReports = checkExpectations(
-      resultingRequest,
+      request,
       response,
       resultingExpectations,
       combineVariables(variables),
@@ -276,11 +276,9 @@ async function runStep$(
       report.expectationMet
     );
 
-    if (!allExpectationsMet && !shouldSkipVariableSettersOnFail) {
-      return "stepFailed";
-    }
-
-    if (step.afterStep) {
+    if (
+      (allExpectationsMet || !shouldSkipVariableSettersOnFail) && step.afterStep
+    ) {
       step.afterStep((name, value) => {
         logger.log(LogLevel.Info, "Setting variable", `${name}=${value}`);
         if (value === undefined) {
@@ -290,11 +288,12 @@ async function runStep$(
       }, response);
     }
 
-    if (!allExpectationsMet) {
-      return "stepFailed";
-    }
-
-    return "stepSuccess";
+    return {
+      testStep: step,
+      testStepSuccessful: allExpectationsMet,
+      expectationReports,
+      request,
+    };
   } catch (err: any) {
     logger.logData(LogLevel.Min, "Exception", err);
     return "error";
@@ -303,35 +302,37 @@ async function runStep$(
 
 function determineTestFlow(
   stepTitle: string,
-  testResult: TestStepResult,
+  testStepResult: TestStepReport | "error",
   step: TestStepDefinition,
   continueAfterFailedSteps: boolean,
   logger: Logger,
 ): TestFlow {
-  switch (testResult) {
-    case "stepSuccess":
-      return { action: "continue", result: "testSuccess" };
-    case "stepFailed":
-      logger.log(
-        LogLevel.Min,
-        `^ ${stepTitle}`,
-        step.description,
-        FAILED,
-        continueAfterFailedSteps ? "Continuing..." : "Aborting...",
-      );
-      if (continueAfterFailedSteps) {
-        return { action: "continue", result: "testFailed" };
-      } else {
-        return { action: "exit", result: "testFailed" };
-      }
-    case "error":
-      // Some exception or other error occured. Abort test.
-      logger.log(
-        LogLevel.Min,
-        `^ ${stepTitle}`,
-        "Exiting...",
-        "Unexpected error encounted",
-      );
-      return { action: "exit", result: "error" };
+  if (testStepResult === "error") {
+    // Some exception or other error occured. Abort test.
+    logger.log(
+      LogLevel.Min,
+      `^ ${stepTitle}`,
+      "Exiting...",
+      "Unexpected error encounted",
+    );
+    return { action: "exit", result: "error" };
+  }
+
+  if (testStepResult.testStepSuccessful) {
+    return { action: "continue", result: testStepResult };
+  } else {
+    logger.log(
+      LogLevel.Min,
+      `^ ${stepTitle}`,
+      step.description,
+      FAILED,
+      continueAfterFailedSteps ? "Continuing..." : "Aborting...",
+    );
+
+    if (continueAfterFailedSteps) {
+      return { action: "continue", result: testStepResult };
+    } else {
+      return { action: "exit", result: testStepResult };
+    }
   }
 }
