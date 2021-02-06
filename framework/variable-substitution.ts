@@ -1,4 +1,4 @@
-import { ResponseExpectation } from "./expect.ts";
+import { Expectation } from "./expect.ts";
 import { HttpRequest, requestHasBody } from "./http-request.ts";
 import { Logger, LogLevel } from "./logger.ts";
 import { combineVariables, Variables, VariableStore } from "./models.ts";
@@ -68,17 +68,17 @@ export function substitueVariablesInRequest(
 
 export function substitueVariablesInExpectations(
   variables: Variables,
-  expectationsToSubstitute: ResponseExpectation[],
+  expectationsToSubstitute: Expectation[],
   logger: Logger,
-): ResponseExpectation[] | "error" {
+): Expectation[] | "error" {
   const expectations = deepCopy(expectationsToSubstitute);
   for (const expectation of expectations) {
     if (
-      expectation.expectation === "bodyEquals" ||
-      expectation.expectation === "bodyIncludes"
+      expectation.type === "bodyEquals" ||
+      expectation.type === "bodyIncludes"
     ) {
-      expectation.body = substituteVariablesOnObject(
-        expectation.body,
+      expectation.type = substituteVariablesOnObject(
+        expectation.type,
         combineVariables(variables),
       );
     }
@@ -149,10 +149,6 @@ function substituteVariablesOnObjectImpl(
       substituteVariablesOnObjectImpl(valuePlaceholderCandidate, variables);
     }
   }
-}
-
-function isString(val: string | number): val is string {
-  return typeof val === "string";
 }
 
 // Variables used in string like this '${myVariable}' are substituted here

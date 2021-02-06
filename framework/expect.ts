@@ -5,23 +5,52 @@ import {
 } from "./expectation-matcher.ts";
 import { JsonValueType } from "./mismatch.ts";
 
-export type ResponseExpectation =
+export type Expectation =
   | StatusEqualsExpectation
   | BodyEqualsExpectation
   | BodyIncludesExpectation;
 
+type ExpectationReportTemplate<E extends Expectation, I, Extra = {}> = {
+  type: E["type"];
+  expectation: Omit<E, "type">;
+  expectationMet: boolean;
+  context: I;
+} & Extra;
+
+// Expectation reports
+
+export type ExpectationReport =
+  | StatusEqualsExpectationReport
+  | BodyEqualsExpectationReport
+  | BodyIncludesExpectationReport;
+
+export type StatusEqualsExpectationReport = ExpectationReportTemplate<
+  StatusEqualsExpectation,
+  { actualStatus: number }
+>;
+
+export type BodyEqualsExpectationReport = ExpectationReportTemplate<
+  BodyEqualsExpectation,
+  { body: any; mismatch: any }
+>;
+
+export type BodyIncludesExpectationReport = ExpectationReportTemplate<
+  BodyIncludesExpectation,
+  { body: any; mismatch: any }
+>;
+
 // Status expectations
 
 export interface StatusEqualsExpectation {
-  expectation: "statusEquals";
-  status: number;
+  type: "statusEquals";
+  expectedStatus: number;
 }
 
 export class ExpectStatus {
   static toBe(status: number): StatusEqualsExpectation {
     return {
-      expectation: "statusEquals",
-      status,
+      type: "statusEquals",
+      expectedStatus: status,
     };
   }
 }
@@ -29,27 +58,27 @@ export class ExpectStatus {
 // Body expectations
 
 export interface BodyEqualsExpectation {
-  expectation: "bodyEquals";
-  body: any;
+  type: "bodyEquals";
+  expectedBody: any;
 }
 
 export interface BodyIncludesExpectation {
-  expectation: "bodyIncludes";
-  body: any;
+  type: "bodyIncludes";
+  expectedBody: any;
 }
 
 export class ExpectBody {
   static toBe(body: any): BodyEqualsExpectation {
     return {
-      expectation: "bodyEquals",
-      body,
+      type: "bodyEquals",
+      expectedBody: body,
     };
   }
 
   static toInclude(body: any): BodyIncludesExpectation {
     return {
-      expectation: "bodyIncludes",
-      body,
+      type: "bodyIncludes",
+      expectedBody: body,
     };
   }
 }

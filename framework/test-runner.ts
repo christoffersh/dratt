@@ -264,7 +264,7 @@ async function runStep$(
       return "error";
     }
 
-    const validationResult = checkExpectations(
+    const expectationReports = checkExpectations(
       resultingRequest,
       response,
       resultingExpectations,
@@ -272,7 +272,11 @@ async function runStep$(
       logger,
     );
 
-    if (validationResult === "failed" && !shouldSkipVariableSettersOnFail) {
+    const allExpectationsMet = expectationReports.every((report) =>
+      report.expectationMet
+    );
+
+    if (!allExpectationsMet && !shouldSkipVariableSettersOnFail) {
       return "stepFailed";
     }
 
@@ -286,7 +290,7 @@ async function runStep$(
       }, response);
     }
 
-    if (validationResult === "failed") {
+    if (!allExpectationsMet) {
       return "stepFailed";
     }
 

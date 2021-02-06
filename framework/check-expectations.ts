@@ -1,8 +1,12 @@
 import {
   BodyEqualsExpectation,
+  BodyEqualsExpectationReport,
   BodyIncludesExpectation,
-  ResponseExpectation,
+  BodyIncludesExpectationReport,
+  Expectation,
+  ExpectationReport,
   StatusEqualsExpectation,
+  StatusEqualsExpectationReport,
 } from "./expect.ts";
 import { HttpRequest, requestHasBody } from "./http-request.ts";
 import { FAILED, Logger, LogLevel } from "./logger.ts";
@@ -16,35 +20,29 @@ import { HttpResponse, VariableStore } from "./models.ts";
 export function checkExpectations(
   request: HttpRequest,
   response: HttpResponse,
-  expectations: ResponseExpectation[],
+  expectations: Expectation[],
   variables: VariableStore,
   logger: Logger,
-): "ok" | "failed" {
-  for (let expectation of expectations) {
-    const result = validateExpectation(
+): ExpectationReport[] {
+  return expectations.map((expectation) =>
+    validateExpectation(
       request,
       response,
       expectation,
       variables,
       logger,
-    );
-
-    if (result === "failed") {
-      return "failed";
-    }
-  }
-
-  return "ok";
+    )
+  );
 }
 
 function validateExpectation(
   request: HttpRequest,
   response: HttpResponse,
-  expectation: ResponseExpectation,
+  expectation: Expectation,
   variables: VariableStore,
   logger: Logger,
-): "ok" | "failed" {
-  switch (expectation.expectation) {
+): ExpectationReport {
+  switch (expectation.type) {
     case "statusEquals":
       return checkStatusEquals(request, response, expectation, logger);
     case "bodyEquals":
@@ -59,13 +57,13 @@ function checkStatusEquals(
   response: HttpResponse,
   expectation: StatusEqualsExpectation,
   logger: Logger,
-): "ok" | "failed" {
-  const statusIsValid = response.status === expectation.status;
+): StatusEqualsExpectationReport {
+  const statusIsValid = response.status === expectation.expectedStatus;
   if (!statusIsValid) {
     logger.log(
       LogLevel.Min,
       "Expect status equals",
-      `Should be ${expectation.status}`,
+      `Should be ${expectation.expectedStatus}`,
       `Was ${response.status} (${response.statusText})`,
       FAILED,
     );
@@ -80,7 +78,14 @@ function checkStatusEquals(
     }
   }
 
-  return statusIsValid ? "ok" : "failed";
+  return {
+    type: "statusEquals",
+    expectation,
+    expectationMet: statusIsValid,
+    context: {
+      actualStatus: expectation.expectedStatus,
+    },
+  };
 }
 
 function checkBodyEquals(
@@ -88,26 +93,34 @@ function checkBodyEquals(
   expectation: BodyEqualsExpectation,
   varaibles: VariableStore,
   logger: Logger,
-): "ok" | "failed" {
-  const mismatches = evaluateMismatch(
-    expectation.body,
+): BodyEqualsExpectationReport {
+  const mismatch = evaluateMismatch(
+    expectation.expectedBody,
     response.body,
     varaibles,
   );
-  const bodyIsValid = Object.keys(mismatches).length === 0;
+  const bodyIsValid = Object.keys(mismatch).length === 0;
 
   if (!bodyIsValid) {
     logger.log(LogLevel.Min, "Expect body equals", FAILED);
-    logger.logData(LogLevel.Info, "Expected body", expectation.body);
+    logger.logData(LogLevel.Info, "Expected body", expectation.expectedBody);
     logger.logData(LogLevel.Info, "Response body", response.body);
     logger.logData(
       LogLevel.Normal,
       "Mismatch",
-      removeMismatchSymbols(mismatches),
+      removeMismatchSymbols(mismatch),
     );
   }
 
-  return bodyIsValid ? "ok" : "failed";
+  return {
+    type: "bodyEquals",
+    expectation,
+    expectationMet: bodyIsValid,
+    context: {
+      body: response.body,
+      mismatch: mismatch,
+    },
+  };
 }
 
 function checkBodyIncludes(
@@ -115,15 +128,15 @@ function checkBodyIncludes(
   expectation: BodyIncludesExpectation,
   variables: VariableStore,
   logger: Logger,
-): "ok" | "failed" {
-  const difference = evaluateMismatch(
-    expectation.body,
+): BodyIncludesExpectationReport {
+  const mismatch = evaluateMismatch(
+    expectation.expectedBody,
     response.body,
     variables,
   );
   const mismatchesOfRequired = removeMismatchSymbols(
     filterMismatches(
-      difference,
+      mismatch,
       (mismatch) => mismatch.mismatchType !== "extra",
     ),
   );
@@ -131,7 +144,7 @@ function checkBodyIncludes(
 
   if (!bodyIsValid) {
     logger.log(LogLevel.Min, "Expect body includes", FAILED);
-    logger.logData(LogLevel.Info, "Expected body", expectation.body);
+    logger.logData(LogLevel.Info, "Expected body", expectation.expectedBody);
     logger.logData(LogLevel.Info, "Response body", response.body);
     logger.logData(
       LogLevel.Normal,
@@ -141,7 +154,7 @@ function checkBodyIncludes(
   }
 
   const mismatchesOfExtra = filterMismatches(
-    difference,
+    mismatch,
     (mismatch) => mismatch.mismatchType === "extra",
   );
 
@@ -160,5 +173,13 @@ function checkBodyIncludes(
     );
   }
 
-  return bodyIsValid ? "ok" : "failed";
+  return {
+    type: "bodyIncludes",
+    expectation,
+    expectationMet: bodyIsValid,
+    context: {
+      body: response.body,
+      mismatch,
+    },
+  };
 }
