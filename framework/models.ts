@@ -18,7 +18,6 @@ export interface TestDefinition {
   steps: TestStepDefinition[];
 }
 
-export type TestResult = "testSuccess" | "testFailed" | "error";
 export type TestFlow =
   | { action: "continue"; result: TestStepReport }
   | { action: "exit"; result: TestStepReport }

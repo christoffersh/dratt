@@ -5,14 +5,13 @@ import {
   combineVariables,
   TestDefinition,
   TestFlow,
-  TestResult,
   TestRunnerSettings,
   TestStepDefinition,
   TestSuiteDefinition,
   Variables,
   VariableStore,
 } from "./models.ts";
-import { TestStepReport } from "./report.ts";
+import { TestReport, TestStepReport } from "./report.ts";
 import {
   substitueVariablesInExpectations,
   substitueVariablesInRequest,
@@ -67,7 +66,13 @@ async function runTestSuite$(
     const testTitle = `Test ${testCounter}/${suite.tests.length}`;
     const result = await runTest$(test, testTitle, suite.variables, logger);
 
-    if (result === "testFailed") {
+    if (result === "error") {
+      return "error";
+    }
+
+    if (result.testSuccessful) {
+      logger.log(LogLevel.Min, `^ ${testTitle}`, test.name, SUCCESS);
+    } else {
       logger.log(
         LogLevel.Min,
         `^ ${testTitle}`,
@@ -82,10 +87,6 @@ async function runTestSuite$(
       } else {
         failedCounter += 1;
       }
-    } else if (result === "testSuccess") {
-      logger.log(LogLevel.Min, `^ ${testTitle}`, test.name, SUCCESS);
-    } else if (result === "error") {
-      return "error";
     }
   }
 
@@ -103,10 +104,9 @@ async function runTest$(
   testTitle: string,
   suiteVariables: VariableStore,
   logger: Logger,
-): Promise<TestResult> {
-  let testExecutionResult: "testSuccess" | "testFailed" = "testSuccess";
+): Promise<TestReport | "error"> {
+  let testFailed = false;
   const testVariables: VariableStore = {};
-  let stepCounter = 0;
   const variables = {
     test: testVariables,
     suite: suiteVariables,
@@ -123,77 +123,134 @@ async function runTest$(
   }
 
   // Seeding setup
-  const totalSetupStepCount = (test.dataSeeders || [])
-    .map((dataSeeder) => dataSeeder.setup.length)
-    .reduce((sum, length) => sum + length, 0);
+  const setupResult = await runSteps$(
+    "Setup step",
+    variables,
+    !!test.continueAfterFailedSteps,
+    (test.dataSeeders ?? []).flatMap((seeder) => seeder.setup),
+    logger,
+  );
 
-  for (const dataSeeder of test.dataSeeders || []) {
-    for (const setupStep of dataSeeder.setup) {
-      stepCounter += 1;
+  if (setupResult === "error") {
+    return "error";
+  }
 
-      const testFlow = await runStepAndDetermineTestFlow$(
-        setupStep,
-        `Setup step ${stepCounter}/${totalSetupStepCount}`,
-        variables,
-        !!test.continueAfterFailedSteps,
-        logger,
-      );
-
-      if (testFlow.action === "exit") {
-        return testFlow.result === "error" ? "error" : "testFailed";
-      } else if (!testFlow.result.testStepSuccessful) {
-        testExecutionResult = "testFailed";
-      }
+  if (
+    !setupResult.every((stepReport) => stepReport.testStepSuccessful)
+  ) {
+    if (test.continueAfterFailedSteps) {
+      testFailed = true;
+    } else {
+      return {
+        test: test,
+        septupStepReports: setupResult,
+        testStepReports: [],
+        teardownStepReports: [],
+        testSuccessful: false,
+      };
     }
   }
 
   // Test steps
-  const testStepCount = test.steps.length;
-  stepCounter = 0;
-  for (const step of test.steps) {
-    stepCounter += 1;
+  const mainResult = await runSteps$(
+    "Step",
+    variables,
+    !!test.continueAfterFailedSteps,
+    test.steps,
+    logger,
+  );
 
-    const testFlow = await runStepAndDetermineTestFlow$(
-      step,
-      `Step ${stepCounter}/${testStepCount}`,
-      variables,
-      !!test.continueAfterFailedSteps,
-      logger,
-    );
+  if (mainResult === "error") {
+    return "error";
+  }
 
-    if (testFlow.action === "exit") {
-      return testFlow.result === "error" ? "error" : "testFailed";
-    } else if (!testFlow.result.testStepSuccessful) {
-      testExecutionResult = "testFailed";
+  if (
+    !mainResult.every((stepReport) => stepReport.testStepSuccessful)
+  ) {
+    if (test.continueAfterFailedSteps) {
+      testFailed = true;
+    } else {
+      return {
+        test: test,
+        septupStepReports: setupResult,
+        testStepReports: mainResult,
+        teardownStepReports: [],
+        testSuccessful: false,
+      };
     }
   }
 
   // Seeding teardown
-  const totalTeardownStepCount = (test.dataSeeders || [])
-    .map((dataSeeder) => dataSeeder.teardown.length)
-    .reduce((sum, length) => sum + length, 0);
+  const teardownResult = await runSteps$(
+    "Teardown step",
+    variables,
+    !!test.continueAfterFailedSteps,
+    (test.dataSeeders ?? []).flatMap((seeder) => seeder.setup),
+    logger,
+  );
 
-  stepCounter = 0;
-  for (const dataSeeder of [...(test.dataSeeders || [])].reverse()) {
-    for (const seederStep of dataSeeder.teardown) {
-      stepCounter += 1;
+  if (teardownResult === "error") {
+    return "error";
+  }
 
-      const testFlow = await runStepAndDetermineTestFlow$(
-        seederStep,
-        `Teardown step ${stepCounter}/${totalTeardownStepCount}`,
-        variables,
-        !!test.continueAfterFailedSteps,
-        logger,
-      );
-
-      if (testFlow.action === "exit") {
-        return testFlow.result === "error" ? "error" : "testFailed";
-      } else if (!testFlow.result.testStepSuccessful) {
-        testExecutionResult = "testFailed";
-      }
+  if (
+    !teardownResult.every((stepReport) => stepReport.testStepSuccessful)
+  ) {
+    if (test.continueAfterFailedSteps) {
+      testFailed = true;
+    } else {
+      return {
+        test: test,
+        septupStepReports: setupResult,
+        testStepReports: mainResult,
+        teardownStepReports: teardownResult,
+        testSuccessful: false,
+      };
     }
   }
-  return testExecutionResult;
+
+  return {
+    test,
+    testSuccessful: true,
+    septupStepReports: setupResult,
+    testStepReports: mainResult,
+    teardownStepReports: teardownResult,
+  };
+}
+
+async function runSteps$(
+  stepName: string,
+  variables: Variables,
+  ignoreFailed: boolean,
+  steps: TestStepDefinition[],
+  logger: Logger,
+): Promise<TestStepReport[] | "error"> {
+  const totalSetupStepCount = steps.length;
+  let stepCounter = 0;
+  const testStepReports: TestStepReport[] = [];
+
+  for (const step of steps) {
+    stepCounter += 1;
+
+    const testFlow = await runStepAndDetermineTestFlow$(
+      step,
+      `${stepName} ${stepCounter}/${totalSetupStepCount}`,
+      variables,
+      ignoreFailed,
+      logger,
+    );
+
+    if (testFlow.result === "error") {
+      return "error";
+    }
+
+    testStepReports.push(testFlow.result);
+
+    if (!testFlow.result.testStepSuccessful && !ignoreFailed) {
+      return testStepReports;
+    }
+  }
+  return testStepReports;
 }
 
 async function runStepAndDetermineTestFlow$(

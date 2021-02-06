@@ -1,6 +1,14 @@
 import { ExpectationReport } from "./expect.ts";
 import { HttpRequest } from "./http-request.ts";
-import { TestStepDefinition } from "./models.ts";
+import { TestDefinition, TestStepDefinition } from "./models.ts";
+
+export interface TestReport {
+  test: TestDefinition;
+  testSuccessful: boolean;
+  septupStepReports: TestStepReport[];
+  testStepReports: TestStepReport[];
+  teardownStepReports: TestStepReport[];
+}
 
 export interface TestStepReport {
   testStep: TestStepDefinition;
