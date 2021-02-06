@@ -1,7 +1,7 @@
 import { dratt, ExpectStatus, LogLevel, Test, TestSuite } from "../dratt.ts";
 
 await dratt({ logLevel: LogLevel.Info }).run$(
-  TestSuite("Test the biggies").tests(
+  TestSuite("Test the biggies", { ignoreFailedTests: true }).tests(
     Test("Google")
       .get(
         "Check google live",

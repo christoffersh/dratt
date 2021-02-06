@@ -11,7 +11,7 @@ import {
   Variables,
   VariableStore,
 } from "./models.ts";
-import { TestReport, TestStepReport } from "./report.ts";
+import { TestReport, TestStepReport, TestSuiteReport } from "./report.ts";
 import {
   substitueVariablesInExpectations,
   substitueVariablesInRequest,
@@ -42,7 +42,7 @@ export class TestRunner {
       const res = await runTestSuite$(suite, logger);
       if (res === "error") {
         return "error";
-      } else if (res == "failed") {
+      } else if (!res.testSuiteSuccessful) {
         testHasFailed = true;
       }
     }
@@ -52,23 +52,25 @@ export class TestRunner {
 }
 
 async function runTestSuite$(
-  suite: TestSuiteDefinition,
+  testSuite: TestSuiteDefinition,
   logger: Logger,
-): Promise<"success" | "failed" | "error"> {
-  logger.log(LogLevel.Min, "Test suite", suite.name);
+): Promise<TestSuiteReport | "error"> {
+  logger.log(LogLevel.Min, "Test suite", testSuite.name);
 
   let testCounter = 0;
-  let failedCounter = 0;
+  const testReports: TestReport[] = [];
 
-  for (const test of suite.tests) {
+  for (const test of testSuite.tests) {
     testCounter += 1;
     console.log("------------------------------------------------------");
-    const testTitle = `Test ${testCounter}/${suite.tests.length}`;
-    const result = await runTest$(test, testTitle, suite.variables, logger);
+    const testTitle = `Test ${testCounter}/${testSuite.tests.length}`;
+    const result = await runTest$(test, testTitle, testSuite.variables, logger);
 
     if (result === "error") {
       return "error";
     }
+
+    testReports.push(result);
 
     if (result.testSuccessful) {
       logger.log(LogLevel.Min, `^ ${testTitle}`, test.name, SUCCESS);
@@ -78,25 +80,35 @@ async function runTestSuite$(
         `^ ${testTitle}`,
         test.name,
         FAILED,
-        suite.ignoreFailedTests ? "Continuing..." : "Aborting...",
+        testSuite.ignoreFailedTests ? "Continuing..." : "Aborting...",
       );
 
-      if (!suite.ignoreFailedTests) {
-        logger.log(LogLevel.Min, "^ Test suite", suite.name, FAILED);
-        return "failed";
-      } else {
-        failedCounter += 1;
+      if (!testSuite.ignoreFailedTests) {
+        logger.log(LogLevel.Min, "^ Test suite", testSuite.name, FAILED);
+        return {
+          testSuite,
+          testReports,
+          testSuiteSuccessful: false,
+        };
       }
     }
   }
 
-  if (failedCounter > 0) {
-    logger.log(LogLevel.Min, "^ Test suite", suite.name, FAILED);
-    return "failed";
-  } else {
-    logger.log(LogLevel.Min, "^ Test suite", suite.name, SUCCESS);
-    return "success";
-  }
+  const everyTestSuccessful = testReports.every((testReport) =>
+    testReport.testSuccessful
+  );
+
+  logger.log(
+    LogLevel.Min,
+    "^ Test suite",
+    testSuite.name,
+    everyTestSuccessful ? SUCCESS : FAILED,
+  );
+  return {
+    testSuite,
+    testReports,
+    testSuiteSuccessful: everyTestSuccessful,
+  };
 }
 
 async function runTest$(
