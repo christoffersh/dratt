@@ -1,4 +1,4 @@
-import { Expectation } from "./expect.ts";
+import { ResponseExpectation } from "./expect.ts";
 import {
   AfterStepHandler,
   TestDefinition,
@@ -46,7 +46,7 @@ export class TestBuilder {
   get(
     description: string,
     url: string,
-    expectations: Expectation[],
+    expectations: ResponseExpectation[],
   ) {
     this.steps.push({
       description,
@@ -63,7 +63,7 @@ export class TestBuilder {
     description: string,
     url: string,
     body: Object,
-    expectations: Expectation[],
+    expectations: ResponseExpectation[],
   ) {
     this.steps.push({
       description,
@@ -81,7 +81,7 @@ export class TestBuilder {
     description: string,
     url: string,
     body: Object,
-    expectations: Expectation[],
+    expectations: ResponseExpectation[],
   ) {
     this.steps.push({
       description,
@@ -98,7 +98,7 @@ export class TestBuilder {
   delete(
     description: string,
     url: string,
-    expectations: Expectation[],
+    expectations: ResponseExpectation[],
   ) {
     this.steps.push({
       description,

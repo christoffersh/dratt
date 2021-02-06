@@ -17,8 +17,8 @@ await dratt({ logLevel: LogLevel.Info }).run$(
     Test("Twitter")
       .get(
         "Check twitter live (but retuns bad request)",
-        "http://www.sovsoglort.com",
-        [ExpectStatus.toBe(404)],
+        "http://www.twitter.com",
+        [ExpectStatus.toBe(400)],
       ),
   ),
 );

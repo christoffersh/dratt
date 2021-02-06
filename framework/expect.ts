@@ -5,38 +5,23 @@ import {
 } from "./expectation-matcher.ts";
 import { JsonValueType } from "./mismatch.ts";
 
-export type Expectation =
+export type ResponseExpectation =
   | StatusEqualsExpectation
   | BodyEqualsExpectation
   | BodyIncludesExpectation;
 
-type EReport<E extends Expectation, I, Extra = {}> = {
-  type: Expectation["type"];
-  expectation: Omit<E, "type">;
-  wasValid: boolean;
-  invalidating?: I;
-} & Extra;
-
-export type ExpectationReport =
-  | EReport<StatusEqualsExpectation, { status: number }>
-  | EReport<BodyEqualsExpectation, { body: any; mismatch: any }>
-  | EReport<BodyIncludesExpectation, { body: any; mismatch: any }>;
-
-function report<E extends Expectation, R extends ExpectationReport>() {
-}
-
 // Status expectations
 
 export interface StatusEqualsExpectation {
-  type: "statusEquals";
-  expectedStatus: number;
+  expectation: "statusEquals";
+  status: number;
 }
 
 export class ExpectStatus {
   static toBe(status: number): StatusEqualsExpectation {
     return {
-      type: "statusEquals",
-      expectedStatus: status,
+      expectation: "statusEquals",
+      status,
     };
   }
 }
@@ -44,27 +29,27 @@ export class ExpectStatus {
 // Body expectations
 
 export interface BodyEqualsExpectation {
-  type: "bodyEquals";
-  expectedBody: any;
+  expectation: "bodyEquals";
+  body: any;
 }
 
 export interface BodyIncludesExpectation {
-  type: "bodyIncludes";
-  expectedBody: any;
+  expectation: "bodyIncludes";
+  body: any;
 }
 
 export class ExpectBody {
   static toBe(body: any): BodyEqualsExpectation {
     return {
-      type: "bodyEquals",
-      expectedBody: body,
+      expectation: "bodyEquals",
+      body,
     };
   }
 
   static toInclude(body: any): BodyIncludesExpectation {
     return {
-      type: "bodyIncludes",
-      expectedBody: body,
+      expectation: "bodyIncludes",
+      body,
     };
   }
 }

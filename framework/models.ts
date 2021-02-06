@@ -1,4 +1,4 @@
-import { Expectation } from "./expect.ts";
+import { ResponseExpectation } from "./expect.ts";
 import { HttpRequest } from "./http-request.ts";
 import { LogLevel } from "./logger.ts";
 
@@ -27,7 +27,7 @@ export type TestFlow =
 export interface TestStepDefinition {
   description: string;
   request: HttpRequest;
-  expectations: Expectation[];
+  expectations: ResponseExpectation[];
   afterStep?: AfterStepHandler;
 }
 

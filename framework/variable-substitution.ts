@@ -1,4 +1,4 @@
-import { Expectation } from "./expect.ts";
+import { ResponseExpectation } from "./expect.ts";
 import { HttpRequest, requestHasBody } from "./http-request.ts";
 import { Logger, LogLevel } from "./logger.ts";
 import { combineVariables, Variables, VariableStore } from "./models.ts";
@@ -68,17 +68,17 @@ export function substitueVariablesInRequest(
 
 export function substitueVariablesInExpectations(
   variables: Variables,
-  expectationsToSubstitute: Expectation[],
+  expectationsToSubstitute: ResponseExpectation[],
   logger: Logger,
-): Expectation[] | "error" {
+): ResponseExpectation[] | "error" {
   const expectations = deepCopy(expectationsToSubstitute);
   for (const expectation of expectations) {
     if (
       expectation.expectation === "bodyEquals" ||
       expectation.expectation === "bodyIncludes"
     ) {
-      expectation.expectedBody = substituteVariablesOnObject(
-        expectation.expectedBody,
+      expectation.body = substituteVariablesOnObject(
+        expectation.body,
         combineVariables(variables),
       );
     }
