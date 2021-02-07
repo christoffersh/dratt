@@ -13,7 +13,7 @@ export class TestSuiteBuilder {
 
   constructor(
     private name: string,
-    private options?: { ignoreFailedTests?: boolean },
+    private options?: { exitOnTestFail?: boolean },
   ) {}
 
   tests(...testBuilders: TestBuilder[]): TestSuiteBuilder {
@@ -31,7 +31,7 @@ export class TestSuiteBuilder {
       name: this.name,
       variables: this.variablesStore ?? {},
       tests: this.testBuilders.map((builder) => builder.build()),
-      ignoreFailedTests: this.options?.ignoreFailedTests ?? false,
+      exitOnTestFail: this.options?.exitOnTestFail ?? false,
     };
   }
 }
@@ -40,16 +40,12 @@ export class TestBuilder {
   private steps: TestStepDefinition[] = [];
 
   constructor(private name: string, private description?: string) {}
-  // .get("Get all", "${googleBaseUrl}", [ExpectStatus.toBe(200)])
-  // .post("Post new search", "${googleBaseUrl}", [ExpectStatus.toBe(200)]),
 
   get(
-    description: string,
     url: string,
     expectations: Expectation[],
   ) {
     this.steps.push({
-      description,
       expectations,
       request: {
         method: "GET",
@@ -60,13 +56,11 @@ export class TestBuilder {
   }
 
   post(
-    description: string,
     url: string,
     body: Object,
     expectations: Expectation[],
   ) {
     this.steps.push({
-      description,
       expectations,
       request: {
         method: "POST",
@@ -78,13 +72,11 @@ export class TestBuilder {
   }
 
   put(
-    description: string,
     url: string,
     body: Object,
     expectations: Expectation[],
   ) {
     this.steps.push({
-      description,
       expectations,
       request: {
         method: "PUT",
@@ -96,12 +88,10 @@ export class TestBuilder {
   }
 
   delete(
-    description: string,
     url: string,
     expectations: Expectation[],
   ) {
     this.steps.push({
-      description,
       expectations,
       request: {
         method: "DELETE",
@@ -125,6 +115,7 @@ export class TestBuilder {
       name: this.name,
       description: this.description,
       steps: this.steps,
+      continueAfterFailedSteps: true,
     };
   }
 }

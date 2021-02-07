@@ -7,7 +7,7 @@ export interface TestSuiteDefinition {
   name: string;
   tests: TestDefinition[];
   variables: VariableStore;
-  ignoreFailedTests?: boolean;
+  exitOnTestFail?: boolean;
 }
 
 export interface TestDefinition {
@@ -23,7 +23,6 @@ export type TestFlow =
   | { action: "exit"; result: TestStepReport };
 
 export interface TestStepDefinition {
-  description: string;
   request: HttpRequest;
   expectations: Expectation[];
   afterStep?: AfterStepHandler;

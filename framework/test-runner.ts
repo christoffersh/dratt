@@ -4,7 +4,6 @@ import { Logger, LogLevel } from "./logger.ts";
 import {
   combineVariables,
   TestDefinition,
-  TestFlow,
   TestRunnerSettings,
   TestStepDefinition,
   TestSuiteDefinition,
@@ -80,12 +79,11 @@ async function runTestSuite$(
       testSuite.variables,
       reporter,
     );
-
     reporter.testEnd(result);
 
     testReports.push(result);
 
-    if (!result.testSuccessful && !testSuite.ignoreFailedTests) {
+    if (!result.testSuccessful && testSuite.exitOnTestFail) {
       return {
         testSuite,
         testReports,
@@ -94,14 +92,12 @@ async function runTestSuite$(
     }
   }
 
-  const everyTestSuccessful = testReports.every((testReport) =>
-    testReport.testSuccessful
-  );
-
   return {
     testSuite,
     testReports,
-    testSuiteSuccessful: everyTestSuccessful,
+    testSuiteSuccessful: testReports.every((testReport) =>
+      testReport.testSuccessful
+    ),
   };
 }
 

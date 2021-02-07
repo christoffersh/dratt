@@ -59,7 +59,7 @@ function checkStatusEquals(
     expectation,
     expectationMet: statusIsValid,
     context: {
-      actualStatus: expectation.expectedStatus,
+      actualStatus: response.status,
     },
   };
 }
@@ -111,7 +111,7 @@ function checkBodyIncludes(
     expectationMet: bodyIsValid,
     context: {
       body: response.body,
-      mismatch,
+      mismatch: mismatchesOfRequired,
     },
   };
 }

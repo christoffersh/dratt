@@ -27,7 +27,7 @@ class Dratt {
 
 export const TestSuite = (
   name: string,
-  options?: { ignoreFailedTests?: boolean },
+  options?: { exitOnTestFail?: boolean },
 ) => {
   return new TestSuiteBuilder(name, options);
 };
