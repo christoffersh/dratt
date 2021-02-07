@@ -30,13 +30,13 @@ export class Logger {
   }
 }
 
-export const FAILED = red("FAILED");
-export const SUCCESS = green("SUCCESS");
+export const FAIL = red("FAIL");
+export const OK = green("OK");
 
 function printLog(title: string, ...parts: (string | number)[]) {
   console.log(
-    [`[${title}]`, ...parts.map((part) => (part ?? "").toString())].join(
-      "   ",
+    [`${title}`, ...parts.map((part) => (part ?? "").toString())].join(
+      "\t",
     ),
   );
 }

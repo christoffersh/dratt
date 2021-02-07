@@ -20,8 +20,7 @@ export interface TestDefinition {
 
 export type TestFlow =
   | { action: "continue"; result: TestStepReport }
-  | { action: "exit"; result: TestStepReport }
-  | { action: "exit"; result: "error" };
+  | { action: "exit"; result: TestStepReport };
 
 export interface TestStepDefinition {
   description: string;

@@ -23,18 +23,16 @@ export function useVariable(
   };
 }
 
-export function substitueVariablesInRequest(
+export function substituteVariablesInRequest(
   variables: Variables,
   requestToSubstitute: HttpRequest,
-  logger: Logger,
-): HttpRequest | "error" {
+): HttpRequest {
   // test variables will overwrite suite variables on collision
   const combinedVariables = combineVariables(variables);
   const request = deepCopy(requestToSubstitute);
 
-  const printSubstitutionErrorContext = (message: string) => {
-    logger.log(LogLevel.Min, "Variable substitution error", message);
-    logger.logData(LogLevel.Normal, "Variables", variables);
+  const makeErr = (message: string) => {
+    return `Variable substitution error - ${message}`;
   };
 
   // base url
@@ -44,10 +42,9 @@ export function substitueVariablesInRequest(
       request.url,
     );
   } catch (err: any) {
-    printSubstitutionErrorContext(
+    throw makeErr(
       `Substitution on url '${request.url}': ${err}`,
     );
-    return "error";
   }
 
   // body
@@ -58,8 +55,7 @@ export function substitueVariablesInRequest(
         combinedVariables,
       );
     } catch (err: any) {
-      printSubstitutionErrorContext(`Substitution on request body: ${err}`);
-      return "error";
+      throw makeErr(`Substitution on request body: ${err}`);
     }
   }
 
@@ -69,8 +65,7 @@ export function substitueVariablesInRequest(
 export function substitueVariablesInExpectations(
   variables: Variables,
   expectationsToSubstitute: Expectation[],
-  logger: Logger,
-): Expectation[] | "error" {
+): Expectation[] {
   const expectations = deepCopy(expectationsToSubstitute);
   for (const expectation of expectations) {
     if (

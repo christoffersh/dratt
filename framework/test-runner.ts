@@ -1,6 +1,6 @@
 import { callApi$ } from "./call-api.ts";
 import { checkExpectations } from "./check-expectations.ts";
-import { FAILED, Logger, LogLevel, SUCCESS } from "./logger.ts";
+import { Logger, LogLevel } from "./logger.ts";
 import {
   combineVariables,
   TestDefinition,
@@ -11,10 +11,16 @@ import {
   Variables,
   VariableStore,
 } from "./models.ts";
-import { TestReport, TestStepReport, TestSuiteReport } from "./report.ts";
+import {
+  DataSeedingReport,
+  LoggerLiveReporter,
+  TestReport,
+  TestStepReport,
+  TestSuiteReport,
+} from "./report.ts";
 import {
   substitueVariablesInExpectations,
-  substitueVariablesInRequest,
+  substituteVariablesInRequest,
 } from "./variable-substitution.ts";
 
 export function createTestRunner(
@@ -35,62 +41,56 @@ export class TestRunner {
   async runTestSuites$(
     testSuites: TestSuiteDefinition[],
   ): Promise<"success" | "failed" | "error"> {
-    let testHasFailed = false;
     const logger = new Logger(this.settings.logLevel);
 
-    for (const suite of testSuites) {
-      const res = await runTestSuite$(suite, logger);
-      if (res === "error") {
-        return "error";
-      } else if (!res.testSuiteSuccessful) {
-        testHasFailed = true;
-      }
-    }
+    try {
+      let testHasFailed = false;
+      const reporter = new LoggerLiveReporter(logger);
 
-    return testHasFailed ? "failed" : "success";
+      for (const testSuite of testSuites) {
+        reporter.testSuiteStart(testSuite);
+
+        const res = await runTestSuite$(testSuite, reporter);
+
+        reporter.testSuiteEnd(res);
+
+        if (!res.testSuiteSuccessful) {
+          testHasFailed = true;
+        }
+      }
+
+      return testHasFailed ? "failed" : "success";
+    } catch (err: any) {
+      logger.logData(LogLevel.Min, "Unexpected exception", err);
+      return "error";
+    }
   }
 }
 
 async function runTestSuite$(
   testSuite: TestSuiteDefinition,
-  logger: Logger,
-): Promise<TestSuiteReport | "error"> {
-  logger.log(LogLevel.Min, "Test suite", testSuite.name);
-
-  let testCounter = 0;
+  reporter: LoggerLiveReporter,
+): Promise<TestSuiteReport> {
   const testReports: TestReport[] = [];
 
   for (const test of testSuite.tests) {
-    testCounter += 1;
-    console.log("------------------------------------------------------");
-    const testTitle = `Test ${testCounter}/${testSuite.tests.length}`;
-    const result = await runTest$(test, testTitle, testSuite.variables, logger);
+    reporter.testStart(test);
+    const result = await runTest$(
+      test,
+      testSuite.variables,
+      reporter,
+    );
 
-    if (result === "error") {
-      return "error";
-    }
+    reporter.testEnd(result);
 
     testReports.push(result);
 
-    if (result.testSuccessful) {
-      logger.log(LogLevel.Min, `^ ${testTitle}`, test.name, SUCCESS);
-    } else {
-      logger.log(
-        LogLevel.Min,
-        `^ ${testTitle}`,
-        test.name,
-        FAILED,
-        testSuite.ignoreFailedTests ? "Continuing..." : "Aborting...",
-      );
-
-      if (!testSuite.ignoreFailedTests) {
-        logger.log(LogLevel.Min, "^ Test suite", testSuite.name, FAILED);
-        return {
-          testSuite,
-          testReports,
-          testSuiteSuccessful: false,
-        };
-      }
+    if (!result.testSuccessful && !testSuite.ignoreFailedTests) {
+      return {
+        testSuite,
+        testReports,
+        testSuiteSuccessful: false,
+      };
     }
   }
 
@@ -98,12 +98,6 @@ async function runTestSuite$(
     testReport.testSuccessful
   );
 
-  logger.log(
-    LogLevel.Min,
-    "^ Test suite",
-    testSuite.name,
-    everyTestSuccessful ? SUCCESS : FAILED,
-  );
   return {
     testSuite,
     testReports,
@@ -113,10 +107,9 @@ async function runTestSuite$(
 
 async function runTest$(
   test: TestDefinition,
-  testTitle: string,
   suiteVariables: VariableStore,
-  logger: Logger,
-): Promise<TestReport | "error"> {
+  reporter: LoggerLiveReporter,
+): Promise<TestReport> {
   let testFailed = false;
   const testVariables: VariableStore = {};
   const variables = {
@@ -124,98 +117,112 @@ async function runTest$(
     suite: suiteVariables,
   };
 
-  logger.log(LogLevel.Min, testTitle, test.name);
+  // Setup data seeding
+  const setupDataSeedingReports = await Promise.all(
+    (test.dataSeeders ?? []).map(
+      async (seeder) => {
+        const steps = await runDataSeederSteps$(
+          variables,
+          !!test.continueAfterFailedSteps,
+          (test.dataSeeders ?? []).flatMap((seeder) => seeder.setup),
+        );
+        const report: DataSeedingReport = {
+          steps,
+          dataSeederName: seeder.name,
+          dataSeedingSuccessful: steps.every((step) => step.testStepSuccessful),
+        };
 
-  if (!!test.continueAfterFailedSteps) {
-    logger.log(
-      LogLevel.Min,
-      "Warning",
-      `Running test with continueAfterFailedExpectations=true`,
-    );
-  }
+        reporter.setupDataSeeding(report);
 
-  // Seeding setup
-  const setupResult = await runSteps$(
-    "Setup step",
-    variables,
-    !!test.continueAfterFailedSteps,
-    (test.dataSeeders ?? []).flatMap((seeder) => seeder.setup),
-    logger,
+        return report;
+      },
+    ),
   );
 
-  if (setupResult === "error") {
-    return "error";
-  }
-
   if (
-    !setupResult.every((stepReport) => stepReport.testStepSuccessful)
+    !setupDataSeedingReports.every((dataSeedingReport) =>
+      dataSeedingReport.dataSeedingSuccessful
+    )
   ) {
     if (test.continueAfterFailedSteps) {
       testFailed = true;
     } else {
       return {
         test: test,
-        septupStepReports: setupResult,
+        setupDataseedingReports: setupDataSeedingReports,
         testStepReports: [],
-        teardownStepReports: [],
+        teardownDataSeedingReports: [],
         testSuccessful: false,
       };
     }
   }
 
   // Test steps
-  const mainResult = await runSteps$(
-    "Step",
-    variables,
-    !!test.continueAfterFailedSteps,
-    test.steps,
-    logger,
-  );
+  const testStepReports: TestStepReport[] = [];
+  for (const step of test.steps) {
+    const testStepReport = await runStep$(
+      step,
+      variables,
+      !!test.continueAfterFailedSteps,
+    );
 
-  if (mainResult === "error") {
-    return "error";
+    reporter.testStep(testStepReport);
+    testStepReports.push(testStepReport);
+
+    if (!testStepReport.testStepSuccessful && !test.continueAfterFailedSteps) {
+      break;
+    }
   }
 
   if (
-    !mainResult.every((stepReport) => stepReport.testStepSuccessful)
+    !testStepReports.every((stepReport) => stepReport.testStepSuccessful)
   ) {
     if (test.continueAfterFailedSteps) {
       testFailed = true;
     } else {
       return {
         test: test,
-        septupStepReports: setupResult,
-        testStepReports: mainResult,
-        teardownStepReports: [],
+        setupDataseedingReports: setupDataSeedingReports,
+        testStepReports: testStepReports,
+        teardownDataSeedingReports: [],
         testSuccessful: false,
       };
     }
   }
 
   // Seeding teardown
-  const teardownResult = await runSteps$(
-    "Teardown step",
-    variables,
-    !!test.continueAfterFailedSteps,
-    (test.dataSeeders ?? []).flatMap((seeder) => seeder.setup),
-    logger,
+  const teardownDataSeedingReports = await Promise.all(
+    (test.dataSeeders ?? []).map(
+      async (seeder) => {
+        const steps = await runDataSeederSteps$(
+          variables,
+          !!test.continueAfterFailedSteps,
+          (test.dataSeeders ?? []).flatMap((seeder) => seeder.setup),
+        );
+        const report: DataSeedingReport = {
+          steps,
+          dataSeederName: seeder.name,
+          dataSeedingSuccessful: steps.every((step) => step.testStepSuccessful),
+        };
+
+        return report;
+      },
+    ),
   );
 
-  if (teardownResult === "error") {
-    return "error";
-  }
-
   if (
-    !teardownResult.every((stepReport) => stepReport.testStepSuccessful)
+    !teardownDataSeedingReports.every((dataSeedingReport) =>
+      dataSeedingReport.dataSeedingSuccessful
+    )
   ) {
     if (test.continueAfterFailedSteps) {
       testFailed = true;
     } else {
       return {
         test: test,
-        septupStepReports: setupResult,
-        testStepReports: mainResult,
-        teardownStepReports: teardownResult,
+        setupDataseedingReports: setupDataSeedingReports,
+        testStepReports: testStepReports,
+        teardownDataSeedingReports: teardownDataSeedingReports,
         testSuccessful: false,
       };
     }
@@ -223,185 +230,79 @@ async function runTest$(
 
   return {
     test,
-    testSuccessful: true,
-    septupStepReports: setupResult,
-    testStepReports: mainResult,
-    teardownStepReports: teardownResult,
+    testSuccessful: !testFailed,
+    setupDataseedingReports: setupDataSeedingReports,
+    testStepReports: testStepReports,
+    teardownDataSeedingReports: teardownDataSeedingReports,
   };
 }
 
-async function runSteps$(
-  stepName: string,
+async function runDataSeederSteps$(
   variables: Variables,
   ignoreFailed: boolean,
   steps: TestStepDefinition[],
-  logger: Logger,
-): Promise<TestStepReport[] | "error"> {
-  const totalSetupStepCount = steps.length;
-  let stepCounter = 0;
+): Promise<TestStepReport[]> {
   const testStepReports: TestStepReport[] = [];
 
   for (const step of steps) {
-    stepCounter += 1;
-
-    const testFlow = await runStepAndDetermineTestFlow$(
+    const testStepReport = await runStep$(
       step,
-      `${stepName} ${stepCounter}/${totalSetupStepCount}`,
       variables,
       ignoreFailed,
-      logger,
     );
 
-    if (testFlow.result === "error") {
-      return "error";
-    }
+    testStepReports.push(testStepReport);
 
-    testStepReports.push(testFlow.result);
-
-    if (!testFlow.result.testStepSuccessful && !ignoreFailed) {
+    if (!testStepReport.testStepSuccessful && !ignoreFailed) {
       return testStepReports;
     }
   }
   return testStepReports;
 }
 
-async function runStepAndDetermineTestFlow$(
-  step: TestStepDefinition,
-  stepTitle: string,
-  variables: Variables,
-  continueAfterFail: boolean,
-  logger: Logger,
-) {
-  logger.log(LogLevel.Min, stepTitle, step.description);
-
-  const testStepReport = await runStep$(
-    step,
-    variables,
-    continueAfterFail,
-    logger,
-  );
-
-  return determineTestFlow(
-    stepTitle,
-    testStepReport,
-    step,
-    continueAfterFail,
-    logger,
-  );
-}
-
 async function runStep$(
   step: TestStepDefinition,
   variables: Variables,
   shouldSkipVariableSettersOnFail: boolean,
-  logger: Logger,
-): Promise<TestStepReport | "error"> {
-  try {
-    const request = substitueVariablesInRequest(
-      variables,
-      step.request,
-      logger,
-    );
+): Promise<TestStepReport> {
+  const request = substituteVariablesInRequest(
+    variables,
+    step.request,
+  );
 
-    if (request === "error") {
-      return "error";
-    }
+  const response = await callApi$(request);
 
-    const response = await callApi$(request, logger);
+  const resultingExpectations = substitueVariablesInExpectations(
+    variables,
+    step.expectations,
+  );
 
-    if (
-      response === "callCreationFailed" ||
-      response === "apiCallException" ||
-      response === "responseReadFailed"
-    ) {
-      logger.log(
-        LogLevel.Min,
-        "Error",
-        "Unexpected error when attempting to call api",
-        response,
-      );
-      return "error";
-    }
+  const expectationReports = checkExpectations(
+    request,
+    response,
+    resultingExpectations,
+    combineVariables(variables),
+  );
 
-    const resultingExpectations = substitueVariablesInExpectations(
-      variables,
-      step.expectations,
-      logger,
-    );
+  const allExpectationsMet = expectationReports.every((report) =>
+    report.expectationMet
+  );
 
-    if (resultingExpectations === "error") {
-      return "error";
-    }
-
-    const expectationReports = checkExpectations(
-      request,
-      response,
-      resultingExpectations,
-      combineVariables(variables),
-      logger,
-    );
-
-    const allExpectationsMet = expectationReports.every((report) =>
-      report.expectationMet
-    );
-
-    if (
-      (allExpectationsMet || !shouldSkipVariableSettersOnFail) && step.afterStep
-    ) {
-      step.afterStep((name, value) => {
-        logger.log(LogLevel.Info, "Setting variable", `${name}=${value}`);
-        if (value === undefined) {
-          throw `Tried to set variable '${name}' to undefined`;
-        }
-        variables.test[name] = value;
-      }, response);
-    }
-
-    return {
-      testStep: step,
-      testStepSuccessful: allExpectationsMet,
-      expectationReports,
-      request,
-    };
-  } catch (err: any) {
-    logger.logData(LogLevel.Min, "Exception", err);
-    return "error";
-  }
-}
-
-function determineTestFlow(
-  stepTitle: string,
-  testStepResult: TestStepReport | "error",
-  step: TestStepDefinition,
-  continueAfterFailedSteps: boolean,
-  logger: Logger,
-): TestFlow {
-  if (testStepResult === "error") {
-    // Some exception or other error occured. Abort test.
-    logger.log(
-      LogLevel.Min,
-      `^ ${stepTitle}`,
-      "Exiting...",
-      "Unexpected error encounted",
-    );
-    return { action: "exit", result: "error" };
+  if (
+    (allExpectationsMet || !shouldSkipVariableSettersOnFail) && step.afterStep
+  ) {
+    step.afterStep((name, value) => {
+      if (value === undefined) {
+        throw `Tried to set variable '${name}' to undefined`;
+      }
+      variables.test[name] = value;
+    }, response);
   }
 
-  if (testStepResult.testStepSuccessful) {
-    return { action: "continue", result: testStepResult };
-  } else {
-    logger.log(
-      LogLevel.Min,
-      `^ ${stepTitle}`,
-      step.description,
-      FAILED,
-      continueAfterFailedSteps ? "Continuing..." : "Aborting...",
-    );
-
-    if (continueAfterFailedSteps) {
-      return { action: "continue", result: testStepResult };
-    } else {
-      return { action: "exit", result: testStepResult };
-    }
-  }
+  return {
+    testStep: step,
+    testStepSuccessful: allExpectationsMet,
+    expectationReports,
+    request,
+  };
 }

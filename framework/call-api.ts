@@ -4,38 +4,14 @@ import { HttpResponse } from "./models.ts";
 
 export async function callApi$(
   request: HttpRequest,
-  logger: Logger,
 ): Promise<
-  | HttpResponse
-  | "apiCallException"
-  | "callCreationFailed"
-  | "responseReadFailed"
+  HttpResponse
 > {
-  logger.log(
-    LogLevel.Normal,
-    request.method,
-    request.url,
-  );
+  const apiCall$ = createApiCall$(request);
 
-  try {
-    const apiCall$ = createApiCall$(request);
+  const res = await apiCall$; // Doing actual call here
 
-    if (apiCall$ === "callCreationFailed") {
-      return "callCreationFailed";
-    }
-
-    const res = await apiCall$; // Doing actual call here
-
-    try {
-      return await readReponse$(res);
-    } catch (err) {
-      logger.logData(LogLevel.Min, "Exception", err);
-      return "responseReadFailed";
-    }
-  } catch (err: any) {
-    logger.log(LogLevel.Min, "Api call exception", err);
-    return "apiCallException";
-  }
+  return await readReponse$(res);
 }
 
 function createApiCall$(request: HttpRequest) {
@@ -45,37 +21,32 @@ function createApiCall$(request: HttpRequest) {
     throw `url "${request.url}" is missing http:// or https:// prefix`;
   }
 
-  if (request.method === "GET") {
-    // GET
-    return fetch(request.url);
-  } else if (request.method === "POST") {
-    // POST
-    return fetch(request.url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request.body),
-    });
-  } else if (request.method === "PUT") {
-    // PUT
-    return fetch(request.url, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request.body),
-    });
-  } else if (request.method === "DELETE") {
-    // DELETE
-    return fetch(request.url, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-  } else {
-    return "callCreationFailed";
+  switch (request.method) {
+    case "GET":
+      return fetch(request.url);
+    case "POST":
+      return fetch(request.url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request.body),
+      });
+    case "PUT":
+      return fetch(request.url, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request.body),
+      });
+    case "DELETE":
+      return fetch(request.url, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
   }
 }
 
