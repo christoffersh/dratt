@@ -1,4 +1,10 @@
-import { dratt, ExpectStatus, LogLevel, Test, TestSuite } from "../dratt.ts";
+import {
+  dratt,
+  ExpectStatus,
+  LogLevel,
+  Test,
+  TestSuite,
+} from "https://raw.githubusercontent.com/christoffersh/dratt/dev/dratt.ts";
 
 await dratt({ logLevel: LogLevel.Info }).run$(
   TestSuite("Test the biggies").tests(
