@@ -39,4 +39,4 @@ You will see something like this:
 
 <img  width="360px" src="./readme-assets/testOutput.png"></img>
 
-Dratt runs the test and checks the expectectations.</br>
+Dratt runs the test and checks the expectations.</br>
