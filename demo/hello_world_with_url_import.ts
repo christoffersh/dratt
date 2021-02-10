@@ -1,12 +1,11 @@
 import {
   dratt,
   ExpectStatus,
-  LogLevel,
   Test,
   TestSuite,
 } from "https://raw.githubusercontent.com/christoffersh/dratt/dev/dratt.ts";
 
-await dratt({ logLevel: LogLevel.Info }).run$(
+await dratt().run$(
   TestSuite("Test the biggies").tests(
     Test("Search engines")
       .get("http://www.goggle.com", [ExpectStatus.toBe(200)])

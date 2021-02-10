@@ -5,20 +5,19 @@
 3. Run dratt and see the magic happen.
 
 ## HOW!?
-Create a typescript file that are the entry point of your test.
+Create a typescript file called `test.ts`.
 
-Name it `test.ts` and paste this snippet:
+Paste this snippet:
 
 ```ts
 import {
   dratt,
   ExpectStatus,
-  LogLevel,
   Test,
   TestSuite,
 } from "https://raw.githubusercontent.com/christoffersh/dratt/dev/dratt.ts";
 
-await dratt({ logLevel: LogLevel.Info }).run$(
+await dratt().run$(
   TestSuite("Test the biggies").tests(
     Test("Search engines")
       .get("http://www.goggle.com", [ExpectStatus.toBe(200)])
@@ -33,7 +32,7 @@ await dratt({ logLevel: LogLevel.Info }).run$(
 
 Run it with [deno](https://deno.land/) like this:
 ```bash
-deno run --allow-net main.ts
+deno run --allow-net test.ts
 ```
 
 You will see something like this:
@@ -41,6 +40,3 @@ You will see something like this:
 <img  width="360px" src="./readme-assets/testOutput.png"></img>
 
 Dratt runs the test and checks the expectectations.</br>
-If an expectation fails, the test is stopped. The test suite continues despite failed tests.
-
-## What about JSON in request and response?
