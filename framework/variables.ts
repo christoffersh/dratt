@@ -1,10 +1,20 @@
-import { Expectation } from "./expect.ts";
-import { HttpRequest, requestHasBody } from "./http-request.ts";
-import { Logger, LogLevel } from "./logger.ts";
-import { combineVariables, Variables, VariableStore } from "./models.ts";
+import { Expectation } from "./expectations/expectation-types.ts";
+import { HttpRequest, requestHasBody } from "./http.ts";
 import { deepCopy, isNullish, isPrimitive } from "./utils.ts";
 
-const variablePlaceholderSymbol = Symbol("variablePlaceholder");
+export type VariableStore = Record<string, string | number>;
+
+export interface Variables {
+  suite: VariableStore;
+  test: VariableStore;
+}
+
+export function combineVariables(variables: Variables): VariableStore {
+  // Test variables can overwrite suite variables
+  return { ...variables.suite, ...variables.test };
+}
+
+export const variablePlaceholderSymbol = Symbol("variablePlaceholder");
 
 export interface VariablePlaceholder {
   [variablePlaceholderSymbol]: true;

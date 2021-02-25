@@ -1,7 +1,8 @@
-import { Expectation } from "./expect.ts";
-import { HttpRequest } from "./http-request.ts";
+import { Expectation } from "./expectations/expectation-types.ts";
+import { HttpRequest, HttpResponse } from "./http.ts";
 import { LogLevel } from "./logger.ts";
 import { TestStepReport } from "./report.ts";
+import { VariableStore } from "./variables.ts";
 
 export interface TestSuiteDefinition {
   name: string;
@@ -39,39 +40,6 @@ export interface DataSeeder {
   teardown: TestStepDefinition[];
 }
 
-export type VariableStore = Record<string, string | number>;
-
-export interface Variables {
-  suite: VariableStore;
-  test: VariableStore;
-}
-
-export function combineVariables(variables: Variables): VariableStore {
-  // Test variables can overwrite suite variables
-  return { ...variables.suite, ...variables.test };
-}
-
 export interface TestRunnerSettings {
   logLevel: LogLevel;
-}
-
-// Response
-
-export interface HttpResponse {
-  url: string;
-  status: number;
-  statusText: string;
-  body?: any;
-}
-
-// Utils
-
-export type ExhaustiveMap<T extends string, U> = {
-  [K in T]: U;
-};
-
-export function exhaustiveMap<T extends string, U extends unknown>(
-  map: ExhaustiveMap<T, U>,
-): ExhaustiveMap<T, U> {
-  return map;
 }

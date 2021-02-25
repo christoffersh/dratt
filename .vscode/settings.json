@@ -1,5 +1,6 @@
-
 {
   "deno.enable": true,
-  "prettier.enable": false
+  "deno.unstable": true,
+  "prettier.enable": false,
+  "deno.lint": false,
 }

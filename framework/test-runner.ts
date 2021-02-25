@@ -1,14 +1,11 @@
-import { callApi$ } from "./call-api.ts";
-import { checkExpectations } from "./check-expectations.ts";
+import { checkExpectations } from "./expectations/check-expectations.ts";
+import { callApi$ } from "./http.ts";
 import { Logger, LogLevel } from "./logger.ts";
 import {
-  combineVariables,
   TestDefinition,
   TestRunnerSettings,
   TestStepDefinition,
   TestSuiteDefinition,
-  Variables,
-  VariableStore,
 } from "./models.ts";
 import {
   DataSeedingReport,
@@ -18,9 +15,12 @@ import {
   TestSuiteReport,
 } from "./report.ts";
 import {
+  combineVariables,
   substitueVariablesInExpectations,
   substituteVariablesInRequest,
-} from "./variable-substitution.ts";
+  Variables,
+  VariableStore,
+} from "./variables.ts";
 
 export function createTestRunner(
   options?: { logLevel?: LogLevel },
@@ -49,11 +49,11 @@ export class TestRunner {
       for (const testSuite of testSuites) {
         reporter.testSuiteStart(testSuite);
 
-        const res = await runTestSuite$(testSuite, reporter);
+        const testSuiteReport = await runTestSuite$(testSuite, reporter);
 
-        reporter.testSuiteEnd(res);
+        reporter.testSuiteEnd(testSuiteReport);
 
-        if (!res.testSuiteSuccessful) {
+        if (!testSuiteReport.testSuiteSuccessful) {
           testHasFailed = true;
         }
       }

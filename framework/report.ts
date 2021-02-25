@@ -1,5 +1,5 @@
-import { ExpectationReport } from "./expect.ts";
-import { HttpRequest } from "./http-request.ts";
+import { ExpectationReport } from "./expectations/expectation-types.ts";
+import { HttpRequest } from "./http.ts";
 import { FAIL, Logger, LogLevel, OK } from "./logger.ts";
 import {
   TestDefinition,

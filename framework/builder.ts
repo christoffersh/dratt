@@ -1,11 +1,22 @@
-import { Expectation } from "./expect.ts";
+import { Expectation } from "./expectations/expectation-types.ts";
 import {
   AfterStepHandler,
   TestDefinition,
   TestStepDefinition,
   TestSuiteDefinition,
-  VariableStore,
 } from "./models.ts";
+import { VariableStore } from "./variables.ts";
+
+export const TestSuite = (
+  name: string,
+  options?: { exitOnTestFail?: boolean },
+) => {
+  return new TestSuiteBuilder(name, options);
+};
+
+export const Test = (name: string, description?: string) => {
+  return new TestBuilder(name, description);
+};
 
 export class TestSuiteBuilder {
   private testBuilders: TestBuilder[] = [];
@@ -36,7 +47,7 @@ export class TestSuiteBuilder {
   }
 }
 
-export class TestBuilder {
+class TestBuilder {
   private steps: TestStepDefinition[] = [];
 
   constructor(private name: string, private description?: string) {}

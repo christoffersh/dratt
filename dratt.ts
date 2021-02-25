@@ -1,13 +1,14 @@
-import { TestBuilder, TestSuiteBuilder } from "./framework/builder.ts";
+import { TestSuiteBuilder } from "./framework/builder.ts";
 import { LogLevel } from "./framework/logger.ts";
-export { LogLevel } from "./framework/logger.ts";
 import { createTestRunner, TestRunner } from "./framework/test-runner.ts";
 
+export { Test, TestSuite } from "./framework/builder.ts";
+export { LogLevel } from "./framework/logger.ts";
 export {
   ExpectBody,
   ExpectProperty,
   ExpectStatus,
-} from "./framework/expect.ts";
+} from "./framework/expectations/expectation-types.ts";
 
 class Dratt {
   private runner: TestRunner;
@@ -24,17 +25,6 @@ class Dratt {
     );
   }
 }
-
-export const TestSuite = (
-  name: string,
-  options?: { exitOnTestFail?: boolean },
-) => {
-  return new TestSuiteBuilder(name, options);
-};
-
-export const Test = (name: string, description?: string) => {
-  return new TestBuilder(name, description);
-};
 
 export function dratt(options?: { logLevel?: LogLevel }) {
   return new Dratt(options);

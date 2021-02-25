@@ -1,6 +1,53 @@
-import { HttpRequest, QueryParams } from "./http-request.ts";
-import { Logger, LogLevel } from "./logger.ts";
-import { HttpResponse } from "./models.ts";
+// Http Request
+
+export type HttpRequest =
+  | HttpGetRequest
+  | HttpPostRequest
+  | HttpDeleteRequest
+  | HttpPutRequest;
+
+export interface HttpGetRequest {
+  method: "GET";
+  url: string;
+}
+
+export interface HttpPostRequest {
+  method: "POST";
+  url: string;
+  body: unknown;
+}
+
+export interface HttpDeleteRequest {
+  method: "DELETE";
+  url: string;
+}
+
+export interface HttpPutRequest {
+  method: "PUT";
+  url: string;
+  body: unknown;
+}
+
+export type QueryParams = Record<string, string | number>;
+
+type HttpRequestContainingBody = HttpPostRequest | HttpPutRequest;
+
+export function requestHasBody(
+  request: HttpRequest,
+): request is HttpRequestContainingBody {
+  return request.method === "POST" || request.method === "PUT";
+}
+
+// Http Response
+
+export interface HttpResponse {
+  url: string;
+  status: number;
+  statusText: string;
+  body?: unknown;
+}
+
+// Request execution
 
 export async function callApi$(
   request: HttpRequest,

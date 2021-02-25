@@ -1,3 +1,5 @@
+import { isNullish } from "../utils.ts";
+import { substituteVariablesOnObject, VariableStore } from "../variables.ts";
 import {
   jsonTypeOf,
   JsonValueType,
@@ -5,9 +7,6 @@ import {
   MismatchFactory,
   MismatchNode,
 } from "./mismatch.ts";
-import { VariableStore } from "./models.ts";
-import { isNullish } from "./utils.ts";
-import { substituteVariablesOnObject } from "./variable-substitution.ts";
 
 // Expectation matcher
 

@@ -1,3 +1,5 @@
+import { HttpRequest, HttpResponse } from "../http.ts";
+import { VariableStore } from "../variables.ts";
 import {
   BodyEqualsExpectation,
   BodyEqualsExpectationReport,
@@ -7,14 +9,12 @@ import {
   ExpectationReport,
   StatusEqualsExpectation,
   StatusEqualsExpectationReport,
-} from "./expect.ts";
-import { HttpRequest } from "./http-request.ts";
+} from "./expectation-types.ts";
 import {
   evaluateMismatch,
   filterMismatches,
   removeMismatchSymbols,
 } from "./mismatch.ts";
-import { HttpResponse, VariableStore } from "./models.ts";
 
 export function checkExpectations(
   request: HttpRequest,

@@ -1,6 +1,6 @@
+import { isEmpty, isNullish, isPrimitive } from "../utils.ts";
+import { VariableStore } from "../variables.ts";
 import { isMatcher } from "./expectation-matcher.ts";
-import { VariableStore } from "./models.ts";
-import { isEmpty, isNullish, isPrimitive } from "./utils.ts";
 
 export const mismatchSymbol = Symbol("mismatchSymbol");
 
